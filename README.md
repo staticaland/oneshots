@@ -6,6 +6,8 @@ A collection of self-contained Python utility scripts.
 
 This repository contains standalone Python scripts that each solve a specific task. Each script is completely self-contained with its own dependencies managed through `uv`.
 
+99% of the code is written by [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview).
+
 ## How it works
 
 Every script in this repo follows the same pattern:
