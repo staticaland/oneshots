@@ -103,3 +103,15 @@ prettier --write path/to/file.md    # Format a specific Markdown file
 - Keep related files in the same directory
 - Each tool should be a standalone Python file with proper uv header
 - Follow established patterns when adding new code
+
+## Version Control
+
+- Use git CLI to commit changes: `git add <files>` then `git commit -m "message"`
+- Follow conventional commits format:
+  - `feat:` for new features
+  - `fix:` for bug fixes
+  - `docs:` for documentation changes
+  - `test:` for adding/modifying tests
+  - `refactor:` for code changes that don't add features or fix bugs
+  - `chore:` for maintenance tasks
+- Write descriptive commit messages with a short summary line and detailed body
