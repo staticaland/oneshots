@@ -33,11 +33,61 @@ When dependencies are needed, include them in the header:
 
 ## Test Commands
 
-- Add test runner commands once testing framework is established.
+Testing with pytest:
+
+```
+pytest                               # Run all tests
+pytest test_filename.py              # Run tests in a specific file
+pytest test_filename.py::test_func   # Run a specific test function
+pytest -v                            # Run tests with verbose output
+pytest -k "keyword"                  # Run tests containing keyword in name
+```
+
+Testing approaches:
+
+1. Unit testing functions:
+   - Test pure functions with various inputs and expected outputs
+   - Use fixtures to set up test data
+   - Use parametrize to run same test with different inputs
+
+2. Testing Click applications:
+   - Use CliRunner to simulate CLI commands
+   - Check exit codes and command output
+   - Test with various command-line options
+
+3. Integration testing:
+   - Test interactions between components
+   - Use tmp_path fixture for file operations
+   - Mock external dependencies as needed
 
 ## Lint Commands
 
-- Add linting commands when a linter is configured.
+Linting with Ruff:
+
+```
+ruff check                          # Lint all files in the current directory (and subdirectories)
+ruff check path/to/code/            # Lint all files in a specific directory (and subdirectories)
+ruff check path/to/code/*.py        # Lint all .py files in a specific directory
+ruff check path/to/code/to/file.py  # Lint a specific file
+ruff check --fix                    # Lint files and fix any fixable errors
+```
+
+Formatting with Ruff (Python files):
+
+```
+ruff format                          # Format all files in the current directory (and subdirectories)
+ruff format path/to/code/            # Format all files in a specific directory (and subdirectories)
+ruff format path/to/code/*.py        # Format all .py files in a specific directory
+ruff format path/to/code/to/file.py  # Format a specific file
+```
+
+Formatting with Prettier (Markdown files):
+
+```
+prettier --write *.md               # Format all Markdown files in the current directory
+prettier --write path/to/*.md       # Format all Markdown files in a specific directory
+prettier --write path/to/file.md    # Format a specific Markdown file
+```
 
 ## Code Style Guidelines
 
