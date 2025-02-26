@@ -14,7 +14,7 @@ from anthropic import Anthropic
 
 @click.command()
 @click.option("--name", default="Claude", help="Name to greet in the message")
-@click.option("--model", default="claude-3-5-sonnet-latest", help="Claude model to use")
+@click.option("--model", default="claude-3-5-haiku-latest", help="Claude model to use")
 def hello(name, model):
     """Send a greeting to Claude and get a response."""
     client = Anthropic()  # Uses ANTHROPIC_API_KEY from environment by default
