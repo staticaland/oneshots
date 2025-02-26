@@ -133,12 +133,31 @@ Instructions on how to merge pull requests.
 
 Use rebase merge if commits are well-structured and meaningful:
 
-  ```sh
-  gh pr merge --rebase
-  ```
+```sh
+gh pr merge --rebase
+```
 
 Use squash merge if commits need cleanup or consolidation:
 
-  ```sh
-  gh pr merge --squash
-  ```
+```sh
+gh pr merge --squash
+```
+
+## Development Lessons
+
+Maintain a `LESSONS.md` file to document hard-earned lessons, debugging solutions, and technical insights discovered during development. This helps prevent repeating the same mistakes and shares knowledge across the team.
+
+Examples of what to include:
+
+- API quirks and workarounds (e.g., Claude tool-calling format requirements)
+- Debugging solutions for tricky issues
+- Performance optimizations
+- Security considerations
+- Best practices discovered through experience
+
+Each entry should include:
+
+- Date
+- Problem description
+- Solution
+- Key takeaways
