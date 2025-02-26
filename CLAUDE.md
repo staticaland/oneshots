@@ -26,6 +26,8 @@ When dependencies are needed, include them in the header:
 # ///
 ```
 
+Command-line interface (CLI) tools should accept standard input (stdin) by default whenever this functionality is appropriate for the tool's purpose.
+
 ## Build Commands
 
 - Preferred: Make script executable and run directly: `chmod +x <script.py>` then `./<script.py>`
@@ -45,17 +47,20 @@ pytest -k "keyword"                  # Run tests containing keyword in name
 
 Testing approaches:
 
-1. Unit testing functions:
+Unit testing functions:
+
    - Test pure functions with various inputs and expected outputs
    - Use fixtures to set up test data
    - Use parametrize to run same test with different inputs
 
-2. Testing Click applications:
+Testing Click applications:
+
    - Use CliRunner to simulate CLI commands
    - Check exit codes and command output
    - Test with various command-line options
 
-3. Integration testing:
+Integration testing:
+
    - Test interactions between components
    - Use tmp_path fixture for file operations
    - Mock external dependencies as needed
@@ -115,3 +120,9 @@ prettier --write path/to/file.md    # Format a specific Markdown file
   - `refactor:` for code changes that don't add features or fix bugs
   - `chore:` for maintenance tasks
 - Write descriptive commit messages with a short summary line and detailed body
+
+### Create PR with title and description
+
+```sh
+gh pr create --title "Your PR title" --body "Description of changes"
+```
