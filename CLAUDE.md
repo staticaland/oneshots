@@ -49,21 +49,21 @@ Testing approaches:
 
 Unit testing functions:
 
-   - Test pure functions with various inputs and expected outputs
-   - Use fixtures to set up test data
-   - Use parametrize to run same test with different inputs
+- Test pure functions with various inputs and expected outputs
+- Use fixtures to set up test data
+- Use parametrize to run same test with different inputs
 
 Testing Click applications:
 
-   - Use CliRunner to simulate CLI commands
-   - Check exit codes and command output
-   - Test with various command-line options
+- Use CliRunner to simulate CLI commands
+- Check exit codes and command output
+- Test with various command-line options
 
 Integration testing:
 
-   - Test interactions between components
-   - Use tmp_path fixture for file operations
-   - Mock external dependencies as needed
+- Test interactions between components
+- Use tmp_path fixture for file operations
+- Mock external dependencies as needed
 
 ## Lint Commands
 
@@ -126,3 +126,16 @@ prettier --write path/to/file.md    # Format a specific Markdown file
 ```sh
 gh pr create --title "Your PR title" --body "Description of changes"
 ```
+
+### Merging PRs
+
+When merging pull requests:
+
+- Use rebase merge if commits are well-structured and meaningful:
+  ```sh
+  gh pr merge --rebase
+  ```
+- Use squash merge if commits need cleanup or consolidation:
+  ```sh
+  gh pr merge --squash
+  ```
