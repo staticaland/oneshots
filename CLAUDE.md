@@ -129,13 +129,16 @@ gh pr create --title "Your PR title" --body "Description of changes"
 
 ### Merging PRs
 
-When merging pull requests:
+Instructions on how to merge pull requests.
 
-- Use rebase merge if commits are well-structured and meaningful:
+Use rebase merge if commits are well-structured and meaningful:
+
   ```sh
   gh pr merge --rebase
   ```
-- Use squash merge if commits need cleanup or consolidation:
+
+Use squash merge if commits need cleanup or consolidation:
+
   ```sh
   gh pr merge --squash
   ```
