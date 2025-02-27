@@ -37,8 +37,8 @@ def install_links(target_dir, force, dry_run):
     Scripts will be linked without the .py extension for cleaner commands.
     Test files (starting with test_) are excluded.
     """
-    # Get repo directory
-    repo_dir = Path(__file__).parent.resolve()
+    # Get repo directory, resolving symlinks
+    repo_dir = Path(os.path.realpath(__file__)).parent.resolve()
 
     # Expand target directory
     target_path = Path(os.path.expanduser(target_dir)).resolve()
