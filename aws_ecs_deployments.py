@@ -12,7 +12,7 @@
 
 import datetime
 import sys
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple
 
 import boto3
 import click
@@ -59,31 +59,68 @@ def get_successful_service_deployments(
     service: str,
     start_date: datetime.datetime,
     end_date: datetime.datetime,
-) -> int:
+    debug: bool = False,
+) -> Tuple[int, List[str]]:
     """Get count of successful deployment events for a service within the specified date range."""
     response = ecs_client.describe_services(cluster=cluster, services=[service])
 
     if not response["services"]:
-        return 0
+        return 0, []
 
     service_data = response["services"][0]
     successful_deployments = 0
+    sample_messages = []
 
-    # Count successful deployments
+    # Check for actual deployments within timeframe
+    deployment_ids = set()
+    for deployment in service_data.get("deployments", []):
+        created_at = deployment.get("createdAt")
+        if created_at and start_date <= created_at <= end_date:
+            # Track this deployment ID
+            deployment_ids.add(deployment.get("id", ""))
+
+    # Count successful deployments from events
     for event in service_data.get("events", []):
         created_at = event.get("createdAt")
-        message = event.get("message", "").lower()
+        message = event.get("message", "")
 
-        # Only count successful deployment completions
-        if (
-            created_at
-            and start_date <= created_at <= end_date
-            and "has reached a steady state" in message
-            and "deployment completed" in message
-        ):
-            successful_deployments += 1
+        # Collect sample messages for debugging
+        if created_at and start_date <= created_at <= end_date:
+            if "deployment" in message.lower() or "task" in message.lower():
+                if len(sample_messages) < 3:  # Limit to 3 sample messages
+                    sample_messages.append(message)
 
-    return successful_deployments
+        # Try different patterns for successful deployments
+        message_lower = message.lower()
+        if created_at and start_date <= created_at <= end_date:
+            # Various patterns that could indicate a successful deployment
+            if any(
+                [
+                    # Original strict criteria
+                    (
+                        "has reached a steady state" in message_lower
+                        and "deployment completed" in message_lower
+                    ),
+                    # Common steady state message
+                    ("has reached a steady state" in message_lower),
+                    # Deployment completion message
+                    ("deployment completed" in message_lower),
+                    # Task set completed message
+                    ("has completed" in message_lower and "taskset" in message_lower),
+                    # Primary task set message
+                    (
+                        "primary taskset" in message_lower
+                        and "complete" in message_lower
+                    ),
+                    # Service stable message
+                    ("service became stable" in message_lower),
+                ]
+            ):
+                successful_deployments += 1
+                if debug and len(sample_messages) < 5:
+                    sample_messages.append(f"MATCHED: {message}")
+
+    return successful_deployments, sample_messages
 
 
 def print_deployment_summary(
@@ -147,6 +184,11 @@ def print_deployment_summary(
     "-ed",
     help="End date (YYYY-MM-DD) - defaults to today",
 )
+@click.option(
+    "--debug/--no-debug",
+    default=False,
+    help="Show debug information including sample event messages",
+)
 def main(
     cluster: Optional[str],
     service: Optional[str],
@@ -154,6 +196,7 @@ def main(
     region: str,
     start_date: Optional[str],
     end_date: Optional[str],
+    debug: bool,
 ):
     """
     Count successful ECS service deployments within a specified time period.
@@ -310,21 +353,26 @@ def main(
     # Process each service and count deployments
     deployment_counts = {}
     total_successful_deployments = 0
+    all_sample_messages = {}
 
     with console.status("[bold blue]Counting successful deployments...[/bold blue]"):
         for service_name in services:
             try:
-                count = get_successful_service_deployments(
+                count, sample_messages = get_successful_service_deployments(
                     ecs_client,
                     cluster,
                     service_name,
                     start_date_parsed,
                     end_date_parsed,
+                    debug,
                 )
 
                 if count > 0:
                     deployment_counts[service_name] = count
                     total_successful_deployments += count
+
+                if debug and sample_messages:
+                    all_sample_messages[service_name] = sample_messages
 
             except Exception as e:
                 console.print(f"Error processing {service_name}: {e}", style="red")
@@ -335,6 +383,35 @@ def main(
         f"[bold green]Found {total_successful_deployments} successful deployments across {len(deployment_counts)} services[/bold green]"
     )
     print_deployment_summary(deployment_counts, total_successful_deployments, console)
+
+    # Print debug information if requested
+    if debug:
+        console.print("\n[bold yellow]Debug Information:[/bold yellow]")
+
+        # Display deployment identification criteria
+        console.print("\n[cyan]Deployment Identification Patterns:[/cyan]")
+        console.print('1. "has reached a steady state" AND "deployment completed"')
+        console.print('2. "has reached a steady state"')
+        console.print('3. "deployment completed"')
+        console.print('4. "has completed" AND "taskset"')
+        console.print('5. "primary taskset" AND "complete"')
+        console.print('6. "service became stable"')
+
+        # Show sample messages
+        if all_sample_messages:
+            console.print("\n[cyan]Sample deployment messages:[/cyan]")
+            for service_name, messages in all_sample_messages.items():
+                if messages:
+                    console.print(f"\n[bold]Service: {service_name}[/bold]")
+                    for i, msg in enumerate(messages, 1):
+                        console.print(f"{i}. {msg}")
+        else:
+            console.print(
+                "\n[yellow]No deployment messages found in the specified time period.[/yellow]"
+            )
+            console.print(
+                "[yellow]Try extending the date range with --start-date parameter.[/yellow]"
+            )
 
 
 if __name__ == "__main__":
