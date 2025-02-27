@@ -22,10 +22,8 @@ from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt
 from rich.panel import Panel
-from rich.spinner import Spinner
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from textual.app import App, ComposeResult
-from textual.widgets import SelectionList, Button, Footer
+from textual.widgets import SelectionList, Button, Footer, Static
 from textual.containers import Container
 
 
@@ -209,24 +207,22 @@ def main(
     
     # Get or select cluster
     if not cluster:
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[bold blue]Fetching available ECS clusters..."),
-            transient=True,
-        ) as progress:
-            task = progress.add_task("Fetching", total=None)
-            try:
-                clusters = get_aws_clusters(ecs_client)
-                progress.update(task, completed=True)
-                
-                if not clusters:
-                    console.print(Panel("No ECS clusters found in this region.", 
-                                       title="Error", 
-                                       border_style="red"))
-                    return
+        console.print("[bold blue]Fetching available ECS clusters...[/bold blue]")
+        try:
+            clusters = get_aws_clusters(ecs_client)
+            console.print("[bold green]Done fetching clusters.[/bold green]")
+            
+            if not clusters:
+                console.print(Panel("No ECS clusters found in this region.", 
+                                  title="Error", 
+                                  border_style="red"))
+                return
                 
                 # Use Textual for interactive selection if we're in a terminal
                 if sys.stdout.isatty():
+                    # Clear any previous output to avoid box issues
+                    console.clear()
+                    
                     class ClusterSelector(App):
                         CSS = """
                         Screen {
@@ -240,9 +236,17 @@ def main(
                             padding: 1 2;
                         }
                         
+                        #title {
+                            content-align: center middle;
+                            width: 100%;
+                            height: 1;
+                            color: white on green;
+                        }
+                        
                         SelectionList {
                             height: auto;
                             max-height: 15;
+                            margin-top: 1;
                         }
                         
                         Button {
@@ -259,6 +263,7 @@ def main(
                         
                         def compose(self) -> ComposeResult:
                             with Container(id="container"):
+                                yield Static("Select an ECS cluster", id="title")
                                 yield SelectionList[str](id="cluster-list")
                                 yield Button("Select", variant="success", id="select-btn")
                             yield Footer()
@@ -283,13 +288,16 @@ def main(
                                 self.selected_cluster = event.selection_list.selected[0]
                                 self.exit()
                     
-                    # Run the Textual app
+                    # Run the Textual app for cluster selection
                     app = ClusterSelector(clusters)
                     app.run()
                     
                     if app.selected_cluster:
                         cluster = app.selected_cluster
+                        # Clear screen after selection
+                        console.clear()
                     else:
+                        console.clear()
                         console.print(Panel("No cluster selected", title="Cancelled", border_style="yellow"))
                         return
                 else:
