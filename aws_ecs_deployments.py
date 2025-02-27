@@ -7,6 +7,7 @@
 #     "rich",
 #     "boto3",
 #     "python-dateutil",
+#     "textual",
 # ]
 # ///
 
@@ -20,6 +21,12 @@ from dateutil import parser
 from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt
+from rich.panel import Panel
+from rich.spinner import Spinner
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from textual.app import App, ComposeResult
+from textual.widgets import SelectionList, Button, Footer
+from textual.containers import Container
 
 
 def get_aws_clusters(ecs_client) -> List[str]:
@@ -202,26 +209,106 @@ def main(
     
     # Get or select cluster
     if not cluster:
-        console.print("Fetching available ECS clusters...", style="blue")
-        try:
-            clusters = get_aws_clusters(ecs_client)
-            if not clusters:
-                console.print("No ECS clusters found in this region.", style="red")
-                return
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[bold blue]Fetching available ECS clusters..."),
+            transient=True,
+        ) as progress:
+            task = progress.add_task("Fetching", total=None)
+            try:
+                clusters = get_aws_clusters(ecs_client)
+                progress.update(task, completed=True)
                 
-            console.print("Available clusters:", style="green")
-            for i, c in enumerate(clusters, 1):
-                console.print(f"  {i}. {c}")
-            
-            selected = Prompt.ask(
-                "Select cluster by number",
-                choices=[str(i) for i in range(1, len(clusters) + 1)],
-                default="1"
-            )
-            cluster = clusters[int(selected) - 1]
-        except Exception as e:
-            console.print(f"Error fetching clusters: {e}", style="red")
-            return
+                if not clusters:
+                    console.print(Panel("No ECS clusters found in this region.", 
+                                       title="Error", 
+                                       border_style="red"))
+                    return
+                
+                # Use Textual for interactive selection if we're in a terminal
+                if sys.stdout.isatty():
+                    class ClusterSelector(App):
+                        CSS = """
+                        Screen {
+                            align: center middle;
+                        }
+                        
+                        #container {
+                            width: 60%;
+                            height: auto;
+                            border: solid green;
+                            padding: 1 2;
+                        }
+                        
+                        SelectionList {
+                            height: auto;
+                            max-height: 15;
+                        }
+                        
+                        Button {
+                            margin-top: 1;
+                        }
+                        """
+                        
+                        BINDINGS = [("q", "quit", "Quit")]
+                        
+                        def __init__(self, clusters):
+                            super().__init__()
+                            self.clusters = clusters
+                            self.selected_cluster = None
+                        
+                        def compose(self) -> ComposeResult:
+                            with Container(id="container"):
+                                yield SelectionList[str](id="cluster-list")
+                                yield Button("Select", variant="success", id="select-btn")
+                            yield Footer()
+                        
+                        def on_mount(self) -> None:
+                            selection_list = self.query_one("#cluster-list")
+                            for i, c in enumerate(self.clusters):
+                                selection_list.add_option((c, c))
+                            if self.clusters:
+                                selection_list.select_first()
+                        
+                        def on_button_pressed(self, event: Button.Pressed) -> None:
+                            selection_list = self.query_one("#cluster-list")
+                            selected = selection_list.selected
+                            if selected:
+                                self.selected_cluster = selected[0]
+                                self.exit()
+                        
+                        def on_selection_list_selected(self, event) -> None:
+                            # Enable double-click selection
+                            if event.selection_list.selected:
+                                self.selected_cluster = event.selection_list.selected[0]
+                                self.exit()
+                    
+                    # Run the Textual app
+                    app = ClusterSelector(clusters)
+                    app.run()
+                    
+                    if app.selected_cluster:
+                        cluster = app.selected_cluster
+                    else:
+                        console.print(Panel("No cluster selected", title="Cancelled", border_style="yellow"))
+                        return
+                else:
+                    # Fallback to simple prompt if not in a terminal
+                    console.print(Panel("Available clusters:", title="Select a cluster", border_style="green"))
+                    for i, c in enumerate(clusters, 1):
+                        console.print(f"  [cyan]{i}.[/cyan] [green]{c}[/green]")
+                    
+                    selected = Prompt.ask(
+                        "Select cluster by number",
+                        choices=[str(i) for i in range(1, len(clusters) + 1)],
+                        default="1"
+                    )
+                    cluster = clusters[int(selected) - 1]
+            except Exception as e:
+                console.print(Panel(f"Error fetching clusters: {e}", 
+                                  title="Error", 
+                                  border_style="red"))
+                return
     
     console.print(f"Using cluster: [bold cyan]{cluster}[/bold cyan]")
     
