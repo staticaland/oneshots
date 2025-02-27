@@ -7,7 +7,6 @@
 #     "rich",
 #     "boto3",
 #     "python-dateutil",
-#     "textual",
 # ]
 # ///
 
@@ -22,9 +21,6 @@ from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt
 from rich.panel import Panel
-from textual.app import App, ComposeResult
-from textual.widgets import SelectionList, Button, Footer, Static
-from textual.containers import Container
 
 
 def get_aws_clusters(ecs_client) -> List[str]:
@@ -226,94 +222,48 @@ def main(
                 )
                 return
 
-            # Use Textual for interactive selection if we're in a terminal
+            # Interactive selection with Rich
             if sys.stdout.isatty():
-                # Clear any previous output to avoid box issues
-                console.clear()
-
-                class ClusterSelector(App):
-                    CSS = """
-                    Screen {
-                        align: center middle;
-                    }
-                    
-                    #container {
-                        width: 60%;
-                        height: auto;
-                        border: solid green;
-                        padding: 1 2;
-                    }
-                    
-                    #title {
-                        content-align: center middle;
-                        width: 100%;
-                        height: 1;
-                        color: white on green;
-                    }
-                    
-                    SelectionList {
-                        height: auto;
-                        max-height: 15;
-                        margin-top: 1;
-                    }
-                    
-                    Button {
-                        margin-top: 1;
-                    }
-                    """
-
-                    BINDINGS = [("q", "quit", "Quit")]
-
-                    def __init__(self, clusters):
-                        super().__init__()
-                        self.clusters = clusters
-                        self.selected_cluster = None
-
-                    def compose(self) -> ComposeResult:
-                        with Container(id="container"):
-                            yield Static("Select an ECS cluster", id="title")
-                            yield SelectionList[str](id="cluster-list")
-                            yield Button("Select", variant="success", id="select-btn")
-                        yield Footer()
-
-                    def on_mount(self) -> None:
-                        selection_list = self.query_one("#cluster-list")
-                        for i, c in enumerate(self.clusters):
-                            selection_list.add_option((c, c))
-                        if self.clusters:
-                            selection_list.select_first()
-
-                    def on_button_pressed(self, event: Button.Pressed) -> None:
-                        selection_list = self.query_one("#cluster-list")
-                        selected = selection_list.selected
-                        if selected:
-                            self.selected_cluster = selected[0]
-                            self.exit()
-
-                    def on_selection_list_selected(self, event) -> None:
-                        # Enable double-click selection
-                        if event.selection_list.selected:
-                            self.selected_cluster = event.selection_list.selected[0]
-                            self.exit()
-
-                # Run the Textual app for cluster selection
-                app = ClusterSelector(clusters)
-                app.run()
-
-                if app.selected_cluster:
-                    cluster = app.selected_cluster
-                    # Clear screen after selection
-                    console.clear()
-                else:
-                    console.clear()
-                    console.print(
-                        Panel(
-                            "No cluster selected",
-                            title="Cancelled",
-                            border_style="yellow",
-                        )
+                console.print(
+                    Panel(
+                        "Available ECS clusters",
+                        title="Cluster Selection",
+                        border_style="green",
                     )
-                    return
+                )
+
+                # List clusters with numbers
+                for i, c in enumerate(clusters, 1):
+                    console.print(f"  [cyan]{i}.[/cyan] [bold green]{c}[/bold green]")
+
+                console.print()  # Add space
+
+                # Get selection with validation
+                while True:
+                    try:
+                        selection = console.input(
+                            "[bold cyan]Enter cluster number[/bold cyan] [default=1]: "
+                        )
+
+                        # Default to first option if empty input
+                        if not selection.strip():
+                            selection = "1"
+
+                        idx = int(selection)
+                        if 1 <= idx <= len(clusters):
+                            cluster = clusters[idx - 1]
+                            console.print(
+                                f"\nSelected: [bold green]{cluster}[/bold green]"
+                            )
+                            break
+                        else:
+                            console.print(
+                                f"[bold red]Please enter a number between 1 and {len(clusters)}[/bold red]"
+                            )
+                    except ValueError:
+                        console.print(
+                            "[bold red]Please enter a valid number[/bold red]"
+                        )
             else:
                 # Fallback to simple prompt if not in a terminal
                 console.print(
