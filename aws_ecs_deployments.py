@@ -163,8 +163,8 @@ def print_deployments_table(deployments: List[Dict[str, Any]], console: Console)
 @click.option(
     "--region",
     "-r",
-    default="us-east-1",
-    help="AWS region (default: us-east-1)",
+    default="eu-west-1",
+    help="AWS region (default: eu-west-1)",
 )
 @click.option(
     "--start-date",
