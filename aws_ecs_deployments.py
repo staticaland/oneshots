@@ -12,7 +12,7 @@
 
 import datetime
 import sys
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict
 
 import boto3
 import click
@@ -53,98 +53,64 @@ def get_services_for_cluster(ecs_client, cluster: str) -> List[str]:
     return services
 
 
-def get_service_deployments(
+def get_successful_service_deployments(
     ecs_client,
     cluster: str,
     service: str,
     start_date: datetime.datetime,
     end_date: datetime.datetime,
-) -> List[Dict[str, Any]]:
-    """Get deployment events for a service within the specified date range."""
+) -> int:
+    """Get count of successful deployment events for a service within the specified date range."""
     response = ecs_client.describe_services(cluster=cluster, services=[service])
 
     if not response["services"]:
-        return []
+        return 0
 
     service_data = response["services"][0]
-    deployments = []
+    successful_deployments = 0
 
-    # Check service deployments
-    for deployment in service_data.get("deployments", []):
-        created_at = deployment.get("createdAt")
-        updated_at = deployment.get("updatedAt")
-
-        if created_at and start_date <= created_at <= end_date:
-            deployments.append(
-                {
-                    "type": "deployment",
-                    "id": deployment.get("id"),
-                    "status": deployment.get("status"),
-                    "task_definition": deployment.get("taskDefinition").split("/")[-1]
-                    if deployment.get("taskDefinition")
-                    else "N/A",
-                    "created_at": created_at,
-                    "updated_at": updated_at,
-                }
-            )
-
-    # Check service events related to deployments
+    # Count successful deployments
     for event in service_data.get("events", []):
         created_at = event.get("createdAt")
-        message = event.get("message", "")
+        message = event.get("message", "").lower()
 
+        # Only count successful deployment completions
         if (
             created_at
             and start_date <= created_at <= end_date
-            and (
-                "deployment" in message.lower() or "task definition" in message.lower()
-            )
+            and "has reached a steady state" in message
+            and "deployment completed" in message
         ):
-            deployments.append(
-                {
-                    "type": "event",
-                    "id": f"event-{len(deployments)}",
-                    "status": "N/A",
-                    "task_definition": "N/A",
-                    "message": message,
-                    "created_at": created_at,
-                }
-            )
+            successful_deployments += 1
 
-    return sorted(deployments, key=lambda x: x["created_at"], reverse=True)
+    return successful_deployments
 
 
-def print_deployments_table(deployments: List[Dict[str, Any]], console: Console):
-    """Print a rich table of deployments."""
-    if not deployments:
+def print_deployment_summary(
+    deployment_counts: Dict[str, int], total_count: int, console: Console
+):
+    """Print a summary table of successful deployments per service."""
+    if not deployment_counts:
         console.print(
-            "No deployments found in the specified time range.", style="yellow"
+            "No successful deployments found in the specified time range.",
+            style="yellow",
         )
         return
 
-    table = Table(title="ECS Service Deployments")
+    # Create and configure table
+    table = Table(title="ECS Successful Deployments Summary")
+    table.add_column("Service", style="cyan")
+    table.add_column("Successful Deployments", style="green", justify="right")
 
-    table.add_column("Date", style="cyan")
-    table.add_column("Type", style="blue")
-    table.add_column("Status", style="green")
-    table.add_column("Task Definition", style="magenta")
-    table.add_column("Details", style="white")
+    # Add rows for each service
+    for service, count in sorted(
+        deployment_counts.items(), key=lambda x: x[1], reverse=True
+    ):
+        table.add_row(service, str(count))
 
-    for deployment in deployments:
-        date_str = deployment["created_at"].strftime("%Y-%m-%d %H:%M:%S")
-
-        if deployment["type"] == "deployment":
-            table.add_row(
-                date_str,
-                "Deployment",
-                deployment["status"],
-                deployment["task_definition"],
-                f"ID: {deployment['id']}",
-            )
-        else:  # event
-            table.add_row(
-                date_str, "Event", "N/A", "N/A", deployment.get("message", "")
-            )
+    # Add total row
+    table.add_section()
+    table.add_row("TOTAL", f"[bold]{total_count}[/bold]")
 
     console.print(table)
 
@@ -190,7 +156,7 @@ def main(
     end_date: Optional[str],
 ):
     """
-    Show ECS service deployments within a specified time period.
+    Count successful ECS service deployments within a specified time period.
 
     If cluster is not specified, you'll be prompted to choose from available clusters.
     If service is not specified, deployments for all services in the cluster will be shown.
@@ -341,32 +307,34 @@ def main(
         console.print(f"Error fetching services: {e}", style="red")
         return
 
-    # Process each service
-    total_deployments = 0
-    for service_name in services:
-        if len(services) > 1:
-            console.print(
-                f"\nChecking service: [bold green]{service_name}[/bold green]"
-            )
+    # Process each service and count deployments
+    deployment_counts = {}
+    total_successful_deployments = 0
 
-        try:
-            deployments = get_service_deployments(
-                ecs_client, cluster, service_name, start_date_parsed, end_date_parsed
-            )
+    with console.status("[bold blue]Counting successful deployments...[/bold blue]"):
+        for service_name in services:
+            try:
+                count = get_successful_service_deployments(
+                    ecs_client,
+                    cluster,
+                    service_name,
+                    start_date_parsed,
+                    end_date_parsed,
+                )
 
-            if deployments:
-                total_deployments += len(deployments)
-                print_deployments_table(deployments, console)
-        except Exception as e:
-            console.print(
-                f"Error fetching deployments for {service_name}: {e}", style="red"
-            )
+                if count > 0:
+                    deployment_counts[service_name] = count
+                    total_successful_deployments += count
 
-    # Summary
-    if len(services) > 1:
-        console.print(
-            f"\nSummary: Found [bold]{total_deployments}[/bold] deployments across [bold]{len(services)}[/bold] services."
-        )
+            except Exception as e:
+                console.print(f"Error processing {service_name}: {e}", style="red")
+
+    # Print summary table
+    console.print()
+    console.print(
+        f"[bold green]Found {total_successful_deployments} successful deployments across {len(deployment_counts)} services[/bold green]"
+    )
+    print_deployment_summary(deployment_counts, total_successful_deployments, console)
 
 
 if __name__ == "__main__":
