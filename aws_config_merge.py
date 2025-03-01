@@ -10,6 +10,7 @@
 import configparser
 import os
 import sys
+
 import click
 
 DEFAULT_CONFIG_PATH = os.path.expanduser("~/.aws/config")

@@ -8,9 +8,11 @@
 # ]
 # ///
 
-import pytest
 import sys
+
+import pytest
 from click.testing import CliRunner
+
 from hello import hello
 
 

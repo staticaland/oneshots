@@ -10,9 +10,11 @@
 
 import os
 import sys
-import pytest
 from pathlib import Path
+
+import pytest
 from click.testing import CliRunner
+
 from rename_files import rename_files
 
 
